@@ -5,7 +5,7 @@ import connectPgSimple from "connect-pg-simple";
 import bcrypt from "bcryptjs";
 import { pool } from "./db";
 import { storage } from "./storage";
-import { extractAudio } from "./youtube";
+import { extractAudio, hasCookies, saveCookies, deleteCookies } from "./youtube";
 import path from "path";
 import fs from "fs";
 
@@ -222,7 +222,41 @@ app.post("/api/youtube/extract", requireAuth, async (req, res) => {
   }
 });
 
+app.get("/api/youtube/cookies", requireAuth, (req, res) => {
+  res.json({ hasCookies: hasCookies() });
+});
+
+app.post("/api/youtube/cookies", requireAuth, (req, res) => {
+  try {
+    const { cookies } = req.body;
+    
+    if (!cookies || typeof cookies !== "string") {
+      return res.status(400).json({ error: "Cookies content is required" });
+    }
+
+    if (!cookies.includes("youtube.com") && !cookies.includes(".youtube.com")) {
+      return res.status(400).json({ error: "Invalid cookies file. Must contain YouTube cookies." });
+    }
+
+    saveCookies(cookies);
+    res.json({ success: true, message: "Cookies saved successfully" });
+  } catch (error: any) {
+    console.error("Save cookies error:", error);
+    res.status(500).json({ error: "Failed to save cookies" });
+  }
+});
+
+app.delete("/api/youtube/cookies", requireAuth, (req, res) => {
+  try {
+    deleteCookies();
+    res.json({ success: true, message: "Cookies deleted" });
+  } catch (error: any) {
+    console.error("Delete cookies error:", error);
+    res.status(500).json({ error: "Failed to delete cookies" });
+  }
+});
+
 const PORT = 3001;
-app.listen(PORT, "localhost", () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server running on http://0.0.0.0:${PORT}`);
 });

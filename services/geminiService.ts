@@ -1,7 +1,18 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Song, AISuggestion } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+let ai: GoogleGenAI | null = null;
+
+function getAI(): GoogleGenAI | null {
+  if (!ai && process.env.API_KEY) {
+    try {
+      ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    } catch (e) {
+      console.warn("Failed to initialize Gemini AI:", e);
+    }
+  }
+  return ai;
+}
 
 export const analyzeVibeAndSuggest = async (
   history: Song[],
@@ -15,7 +26,15 @@ export const analyzeVibeAndSuggest = async (
     };
   }
 
-  // Prepare data for the model
+  const aiClient = getAI();
+  if (!aiClient) {
+    return {
+      mood: "AI Not Available",
+      reasoning: "AI features require a Gemini API key. Add GEMINI_API_KEY to your secrets to enable AI suggestions.",
+      suggestedSongIds: availableLibrary.slice(0, 5).map(s => s.id)
+    };
+  }
+
   const historyTitles = history.slice(-3).map(s => `${s.title} by ${s.artist}`).join(", ");
   const libraryCatalog = availableLibrary.map(s => ({
     id: s.id,
@@ -36,7 +55,7 @@ export const analyzeVibeAndSuggest = async (
   `;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await aiClient.models.generateContent({
       model: "gemini-2.5-flash",
       contents: prompt,
       config: {
@@ -65,7 +84,6 @@ export const analyzeVibeAndSuggest = async (
 
   } catch (error) {
     console.error("Gemini AI Error:", error);
-    // Fallback
     return {
       mood: "Offline / Error",
       reasoning: "Could not connect to AI. Shuffling library.",

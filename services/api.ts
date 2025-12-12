@@ -62,3 +62,28 @@ export const extractYoutubeAudio = async (url: string): Promise<SongData> => {
   if (!res.ok) throw new Error(data.error || 'Failed to extract audio');
   return data;
 };
+
+export const checkYoutubeCookies = async (): Promise<{ hasCookies: boolean }> => {
+  const res = await fetch(`${API_BASE}/youtube/cookies`, { credentials: 'include' });
+  if (!res.ok) throw new Error('Failed to check cookies');
+  return res.json();
+};
+
+export const uploadYoutubeCookies = async (cookies: string): Promise<void> => {
+  const res = await fetch(`${API_BASE}/youtube/cookies`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ cookies }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to upload cookies');
+};
+
+export const deleteYoutubeCookies = async (): Promise<void> => {
+  const res = await fetch(`${API_BASE}/youtube/cookies`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  if (!res.ok) throw new Error('Failed to delete cookies');
+};
