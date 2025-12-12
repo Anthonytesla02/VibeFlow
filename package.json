@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx server/index.ts & vite",
+    "dev": "concurrently \"tsx server/index.ts\" \"vite\"",
     "dev:frontend": "vite",
     "dev:server": "tsx server/index.ts",
     "build": "vite build",
@@ -19,6 +19,7 @@
     "@types/express": "^5.0.6",
     "@types/express-session": "^1.18.2",
     "bcryptjs": "^3.0.3",
+    "concurrently": "^9.2.1",
     "connect-pg-simple": "^10.0.0",
     "cors": "^2.8.5",
     "drizzle-kit": "^0.31.8",

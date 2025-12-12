@@ -36,7 +36,10 @@ const AppContent: React.FC = () => {
   if (isLoading) {
     return (
       <div className="h-screen w-full flex items-center justify-center bg-[#0f0f11]">
-        <Loader2 className="animate-spin text-green-400" size={48} />
+        <div className="flex flex-col items-center space-y-4">
+          <Loader2 className="animate-spin text-green-400" size={48} />
+          <p className="text-gray-400 text-sm">Loading...</p>
+        </div>
       </div>
     );
   }
