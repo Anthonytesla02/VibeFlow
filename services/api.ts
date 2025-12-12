@@ -1,60 +1,64 @@
-interface CobaltResponse {
-  status: string;
-  text?: string;
-  url?: string;
-  picker?: any[];
-  filename?: string;
+const API_BASE = '/api';
+
+export interface SongData {
+  id: string;
+  title: string;
+  artist: string;
+  album?: string;
+  coverUrl?: string;
+  audioUrl?: string;
+  audioPath?: string;
+  duration: number;
+  addedAt: string;
+  isFavorite: boolean;
+  genre?: string;
+  sourceType: 'upload' | 'youtube';
 }
 
-export const extractYoutubeAudio = async (url: string): Promise<{ url: string, filename: string }> => {
-  // We use the Cobalt API which is a reliable, free, and ad-free media downloader.
-  
-  // 'corsproxy.io' often returns 400 for POST requests with JSON bodies.
-  // 'api.codetabs.com' handles POST requests/headers more reliably for this specific API.
-  const BASE_URL = 'https://api.cobalt.tools/api/json';
-  const PROXY_URL = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(BASE_URL);
+export const fetchSongs = async (): Promise<SongData[]> => {
+  const res = await fetch(`${API_BASE}/songs`, { credentials: 'include' });
+  if (!res.ok) throw new Error('Failed to fetch songs');
+  return res.json();
+};
 
-  try {
-    const response = await fetch(PROXY_URL, {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        url: url,
-        isAudioOnly: true,
-        aFormat: 'mp3',
-        filenamePattern: 'basic' 
-      })
-    });
+export const createSong = async (song: Partial<SongData>): Promise<SongData> => {
+  const res = await fetch(`${API_BASE}/songs`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(song),
+  });
+  if (!res.ok) throw new Error('Failed to create song');
+  return res.json();
+};
 
-    if (!response.ok) {
-        // Try to read the error text if possible
-        const errText = await response.text().catch(() => '');
-        console.error("API Error Body:", errText);
-        throw new Error(`API Network Error: ${response.status}`);
-    }
+export const toggleFavorite = async (id: string, isFavorite: boolean): Promise<SongData> => {
+  const res = await fetch(`${API_BASE}/songs/${id}/favorite`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ isFavorite }),
+  });
+  if (!res.ok) throw new Error('Failed to update favorite');
+  return res.json();
+};
 
-    const data: CobaltResponse = await response.json();
+export const deleteSong = async (id: string): Promise<void> => {
+  const res = await fetch(`${API_BASE}/songs/${id}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  if (!res.ok) throw new Error('Failed to delete song');
+};
 
-    if (data.status === 'error') {
-      throw new Error(data.text || 'Failed to extract audio');
-    }
-
-    if (data.status === 'picker') {
-        throw new Error('Video requires selection, please try a single video URL.');
-    }
-
-    const filename = data.filename || 'Extracted Song';
-
-    return { 
-        url: data.url || '', 
-        filename: filename 
-    };
-
-  } catch (error) {
-    console.error('Extraction API Error:', error);
-    throw error;
-  }
+export const extractYoutubeAudio = async (url: string): Promise<SongData> => {
+  const res = await fetch(`${API_BASE}/youtube/extract`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ url }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to extract audio');
+  return data;
 };

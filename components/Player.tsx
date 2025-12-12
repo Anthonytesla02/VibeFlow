@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAudio } from '../contexts/AudioContext';
-import { Play, Pause, SkipBack, SkipForward, Heart, Repeat, Shuffle } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Heart, Repeat, Shuffle, Disc } from 'lucide-react';
 
 export const Player: React.FC = () => {
   const { 
@@ -110,6 +110,4 @@ export const Player: React.FC = () => {
   );
 };
 
-// Simple Icon fallback
 const DiscIcon = (props: any) => <Disc {...props} />
-import { Disc } from 'lucide-react';

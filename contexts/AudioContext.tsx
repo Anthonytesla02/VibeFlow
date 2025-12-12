@@ -1,6 +1,31 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
-import { Song, PlayerState } from '../types';
-import { musicDB } from '../services/db';
+import { fetchSongs, toggleFavorite as apiFavorite, deleteSong as apiDelete, SongData } from '../services/api';
+
+export interface Song {
+  id: string;
+  title: string;
+  artist: string;
+  album?: string;
+  coverUrl?: string;
+  audioUrl?: string;
+  duration: number;
+  addedAt: number;
+  isFavorite: boolean;
+  genre?: string;
+  sourceType: 'upload' | 'youtube';
+}
+
+interface PlayerState {
+  currentSong: Song | null;
+  isPlaying: boolean;
+  queue: Song[];
+  history: Song[];
+  currentTime: number;
+  duration: number;
+  volume: number;
+  isShuffle: boolean;
+  repeatMode: 'off' | 'all' | 'one';
+}
 
 interface AudioContextType extends PlayerState {
   playSong: (song: Song) => void;
@@ -13,9 +38,24 @@ interface AudioContextType extends PlayerState {
   library: Song[];
   toggleLike: (songId: string) => void;
   setQueue: (songs: Song[]) => void;
+  removeSong: (songId: string) => Promise<void>;
 }
 
 const AudioContext = createContext<AudioContextType | undefined>(undefined);
+
+const mapSongData = (data: SongData): Song => ({
+  id: data.id,
+  title: data.title,
+  artist: data.artist,
+  album: data.album,
+  coverUrl: data.coverUrl,
+  audioUrl: data.audioUrl,
+  duration: data.duration,
+  addedAt: new Date(data.addedAt).getTime(),
+  isFavorite: data.isFavorite,
+  genre: data.genre,
+  sourceType: data.sourceType,
+});
 
 export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [library, setLibrary] = useState<Song[]>([]);
@@ -33,8 +73,10 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const refreshLibrary = useCallback(async () => {
     try {
-      const songs = await musicDB.getAllSongs();
-      setLibrary(songs);
+      const songs = await fetchSongs();
+      const mappedSongs = songs.map(mapSongData);
+      mappedSongs.sort((a, b) => b.addedAt - a.addedAt);
+      setLibrary(mappedSongs);
     } catch (e) {
       console.error("Failed to load library", e);
     }
@@ -44,7 +86,6 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     refreshLibrary();
   }, [refreshLibrary]);
 
-  // Audio Event Listeners
   useEffect(() => {
     const audio = audioRef.current;
 
@@ -61,11 +102,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       audio.removeEventListener('loadedmetadata', updateDuration);
       audio.removeEventListener('ended', onEnded);
     };
-  }, [queue, currentSong, repeatMode]); // Re-bind if dependencies change logic
+  }, [queue, currentSong, repeatMode]);
 
   const playSong = useCallback((song: Song) => {
     if (currentSong) {
-        setHistory(prev => [...prev, currentSong]);
+      setHistory(prev => [...prev, currentSong]);
     }
     setCurrentSong(song);
     setIsPlaying(true);
@@ -94,10 +135,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setQueueState(rest);
       playSong(next);
     } else if (repeatMode === 'all' && library.length > 0) {
-       // Simple loop of library if queue empty
-       // In a real app we might cycle library or history
-       const nextIndex = (library.findIndex(s => s.id === currentSong?.id) + 1) % library.length;
-       playSong(library[nextIndex]);
+      const nextIndex = (library.findIndex(s => s.id === currentSong?.id) + 1) % library.length;
+      playSong(library[nextIndex]);
     } else {
       setIsPlaying(false);
       setCurrentSong(null);
@@ -112,7 +151,6 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (history.length > 0) {
       const prev = history[history.length - 1];
       setHistory(prevHist => prevHist.slice(0, -1));
-      // Put current back in queue front? No, just play prev
       playSong(prev);
     }
   }, [history, playSong]);
@@ -133,19 +171,38 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const toggleLike = useCallback(async (songId: string) => {
     const song = library.find(s => s.id === songId);
     if (song) {
-        const newVal = !song.isFavorite;
-        await musicDB.toggleFavorite(songId, newVal);
-        refreshLibrary();
+      const newVal = !song.isFavorite;
+      try {
+        await apiFavorite(songId, newVal);
+        await refreshLibrary();
         if (currentSong?.id === songId) {
-            setCurrentSong({...currentSong, isFavorite: newVal});
+          setCurrentSong({...currentSong, isFavorite: newVal});
         }
+      } catch (e) {
+        console.error("Failed to toggle favorite", e);
+      }
     }
   }, [library, refreshLibrary, currentSong]);
+
+  const removeSong = useCallback(async (songId: string) => {
+    try {
+      await apiDelete(songId);
+      await refreshLibrary();
+      if (currentSong?.id === songId) {
+        setCurrentSong(null);
+        setIsPlaying(false);
+        audioRef.current.pause();
+        audioRef.current.src = '';
+      }
+    } catch (e) {
+      console.error("Failed to delete song", e);
+    }
+  }, [refreshLibrary, currentSong]);
 
   return (
     <AudioContext.Provider value={{
       library, currentSong, isPlaying, queue, history, currentTime, duration, volume, isShuffle, repeatMode,
-      playSong, togglePlay, playNext, playPrevious, seek, addToQueue, refreshLibrary, toggleLike, setQueue
+      playSong, togglePlay, playNext, playPrevious, seek, addToQueue, refreshLibrary, toggleLike, setQueue, removeSong
     }}>
       {children}
     </AudioContext.Provider>

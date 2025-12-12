@@ -4,8 +4,7 @@ export interface Song {
   artist: string;
   album?: string;
   coverUrl?: string;
-  audioBlob?: Blob; // Stored in DB
-  audioUrl?: string; // Generated URL for playback
+  audioUrl?: string;
   duration: number;
   addedAt: number;
   isFavorite: boolean;
