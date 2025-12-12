@@ -1,0 +1,5 @@
+{
+  "name": "VibeFlow AI",
+  "description": "An AI-powered offline-first audio player that analyzes your mood to suggest the perfect next track. Features a simulated cloud library, YouTube extraction simulation, and a sleek mobile interface.",
+  "requestFramePermissions": []
+}
